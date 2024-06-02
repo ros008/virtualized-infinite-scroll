@@ -13,10 +13,6 @@ const Item = observer(
     const { message, idx } = props;
     // console.log(message);
 
-    useEffect(() => {
-      console.log("reRendered", idx);
-    }, [message.metadata.lastMessage]);
-
     return (
       <S.Item ref={ref}>
         <S.PaddingWrapper>

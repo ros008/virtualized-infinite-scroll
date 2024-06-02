@@ -17,7 +17,7 @@ const Row: FC<RowProps> = observer(({ index, style, data }: RowProps) => {
   const rowRef = useRef<HTMLDivElement>(null);
   const { dataStore } = useCoreStore();
   const { setRowHeight } = data;
-  const dataList = dataStore.dataArray[index];
+  const dataList = dataStore.dataList[index];
 
   useEffect(() => {
     if (rowRef.current) {

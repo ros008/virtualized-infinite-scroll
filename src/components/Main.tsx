@@ -4,6 +4,7 @@ import React, {
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import { VariableSizeList as List, ScrollDirection } from "react-window";
 import * as S from "./styled";
@@ -17,6 +18,9 @@ const MessageList = observer(
     const listRef = useRef<List>(null);
     const rowHeights = useRef<{ [key: number]: number }>({});
     const isUpDirection = useRef(false);
+
+    const [isFirstRender, setIsFirstRender] = useState(true);
+    const [startIndex, setStartIndex] = useState<number>(0);
 
     const { dataStore } = useCoreStore();
 
@@ -38,9 +42,9 @@ const MessageList = observer(
       [setRowHeight]
     );
 
-    const dataList = dataStore.dataArray;
+    const dataList = dataStore.dataList;
 
-    const handleItemsRendered = ({
+    const handleItemsRendered = async ({
       overscanStartIndex,
       overscanStopIndex,
       visibleStartIndex,
@@ -51,10 +55,56 @@ const MessageList = observer(
       visibleStartIndex: number;
       visibleStopIndex: number;
     }) => {
-      console.log("overscanStartIndex", overscanStartIndex);
-      console.log("overscanStopIndex", overscanStopIndex);
-      console.log("visibleStartIndex", visibleStartIndex);
-      console.log("visibleStopIndex", visibleStopIndex);
+      if (
+        (dataStore.upHasMore &&
+          overscanStartIndex === 0 &&
+          isUpDirection.current) ||
+        (dataStore.downHasMore &&
+          overscanStopIndex === dataList.length &&
+          !isUpDirection.current)
+      ) {
+        console.log("overscanStartIndex", overscanStartIndex);
+        console.log("overscanStopIndex", overscanStopIndex);
+        console.log("visibleStartIndex", visibleStartIndex);
+        console.log("visibleStopIndex", visibleStopIndex);
+      }
+      if (isFirstRender) {
+        setIsFirstRender(false);
+        return;
+      }
+      if (
+        dataStore.upHasMore &&
+        overscanStartIndex === 0 &&
+        isUpDirection.current
+      ) {
+        const curId = dataList[0].id;
+        const res = await dataStore.fetchData({
+          target: dataList[0].id,
+          upSize: 20,
+          isFirst: false,
+        });
+        const preIdx = dataStore.dataList.findIndex(
+          (data) => data.id === curId
+        );
+        setStartIndex(res.length);
+        // if (listRef.current) listRef.current.scrollToItem(preIdx, "smart");
+      }
+      if (
+        dataStore.downHasMore &&
+        overscanStopIndex === dataList.length &&
+        !isUpDirection.current
+      ) {
+        const curId = dataList[dataList.length - 1].id;
+        dataStore.fetchData({
+          target: dataList[dataList.length - 1].id,
+          downSize: 20,
+          isFirst: false,
+        });
+        const preIdx = dataStore.dataList.findIndex(
+          (data) => data.id === curId
+        );
+        // if (listRef.current) listRef.current.scrollToItem(preIdx, "smart");
+      }
     };
 
     const handleScroll = ({
@@ -62,9 +112,9 @@ const MessageList = observer(
     }: {
       scrollDirection: ScrollDirection;
     }) => {
-      if (scrollDirection === "forward") {
+      if (scrollDirection === "backward") {
         isUpDirection.current = true;
-      } else {
+      } else if (scrollDirection === "forward") {
         isUpDirection.current = false;
       }
     };
@@ -83,6 +133,7 @@ const MessageList = observer(
         width={width}
         overscanCount={3}
         onItemsRendered={handleItemsRendered}
+        initialScrollOffset={startIndex * 100}
         onScroll={handleScroll}
         itemData={itemData}
       >
@@ -98,20 +149,17 @@ const MessageList = observer(
     );
   }
 );
+
 const Main = observer(() => {
   const { dataStore } = useCoreStore();
 
-  const getData = async (
-    startIdx: number,
-    size: number = 20,
-    isFirst = false
-  ) => {
-    await dataStore.fetchData(startIdx, size, isFirst);
-    console.log(dataStore.dataArray);
+  const getData = async (target: number, isFirst = false) => {
+    await dataStore.fetchData({ target, upSize: 20, downSize: 20, isFirst });
+    console.log(dataStore.dataList);
   };
 
   useEffect(() => {
-    getData(500, 20, true);
+    getData(500, true);
   }, []);
 
   return (
@@ -133,7 +181,7 @@ const Main = observer(() => {
           //     count: 42,
           //   };
           //   dataStore.updateDataMetadata(503, metaData);
-          getData(520, 20, false);
+          getData(520, false);
         }}
       >
         {"change metadata"}
